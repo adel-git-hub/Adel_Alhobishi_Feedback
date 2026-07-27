@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  DEPARTMENT_MANAGER
+  EMPLOYEE
+}
+
+enum EvaluationType {
+  CUSTOMER
+  INTERNAL_360
+}
+
+enum FeedbackCategory {
+  SUGGESTION
+  THANKS
+  COMPLAINT
+}
+
+enum PublicAccessType {
+  LOBBY_CUSTOMER
+  MERCHANT_CUSTOMER
+  INTERNAL_ONLY
+}
+
+model Branch {
+  id          String       @id @default(uuid())
+  name        String
+  location    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  users       User[]
+  departments Department[]
+  evaluations Evaluation[]
+}
+
+model Department {
+  id          String           @id @default(uuid())
+  name        String
+  accessType  PublicAccessType @default(INTERNAL_ONLY)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  branchId    String
+  branch      Branch           @relation(fields: [branchId], references: [id])
+  
+  users       User[]
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  passwordHash  String    
+  role          Role      @default(EMPLOYEE)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  branchId      String?
+  branch        Branch?     @relation(fields: [branchId], references: [id])
+
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+
+  evaluationsReceived Evaluation[] @relation("EvaluatedEmployee")
+  evaluationsGiven    Evaluation[] @relation("Evaluator")
+}
+
+model Evaluation {
+  id              String         @id @default(uuid())
+  type            EvaluationType
+  overallScore    Float          
+  feedback        String?        @db.Text
+  createdAt       DateTime       @default(now())
+  
+  customerPhone   String?
+  customerName    String?
+  customerEmail   String?
+  feedbackCategory FeedbackCategory?
+
+  branchId        String
+  branch          Branch         @relation(fields: [branchId], references: [id])
+
+  employeeId      String
+  employee        User           @relation("EvaluatedEmployee", fields: [employeeId], references: [id])
+
+  evaluatorId     String?
+  evaluator       User?          @relation("Evaluator", fields: [evaluatorId], references: [id])
+
+  scores          EvaluationScore[]
+}
+
+model Criteria {
+  id          String         @id @default(uuid())
+  name        String         
+  description String?
+  type        EvaluationType 
+  isActive    Boolean        @default(true)
+  
+  scores      EvaluationScore[]
+}
+
+model EvaluationScore {
+  id           String     @id @default(uuid())
+  score        Int        
+  
+  evaluationId String
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  
+  criteriaId   String
+  criteria     Criteria   @relation(fields: [criteriaId], references: [id])
+
+  @@unique([evaluationId, criteriaId]) 
+}
